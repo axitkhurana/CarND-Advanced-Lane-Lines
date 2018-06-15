@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import pickle
 import glob
+from tracker import Tracker
 
 
 dist_pickle = pickle.load(open('camera_cal/calibration_pickle.p', 'rb'))
@@ -78,7 +79,63 @@ for idx, fname in enumerate(images):
     c_binary = color_thresh(img, sthresh=(100, 255), vthresh=(50, 255))
     preprocess_image[((gradx == 1) & (grady == 1) | (c_binary == 1))] = 255
 
-    result = preprocess_image
+    img_size = (img.shape[1], img.shape[0])
+    bot_width = .76
+    mid_width = .08
+    height_pct = .62
+    bottom_trim = .935
+    src = np.float32([
+        [img.shape[1]*(.5-mid_width/2), img.shape[0]*height_pct],
+        [img.shape[1]*(.5+mid_width/2), img.shape[0]*height_pct],
+        [img.shape[1]*(.5+bot_width/2), img.shape[0]*bottom_trim],
+        [img.shape[1]*(.5-bot_width/2), img.shape[0]*bottom_trim],
+    ])
+    offset = img.shape[1]*.25
+    dst = np.float32([
+        [offset, 0],
+        [img.shape[1]-offset, 0],
+        [img.shape[1]-offset, img.shape[0]],
+        [offset, img.shape[0]]
+    ])
+    M = cv2.getPerspectiveTransform(src, dst)
+    Minv = cv2.getPerspectiveTransform(dst, src)
+    warped = cv2.warpPerspective(preprocess_image, M, img_size, flags=cv2.INTER_LINEAR)
 
-    write_name = f'./test_images/tracked-{idx}.jpg'
+    window_width = 25
+    window_height = 80
+    curve_centers = Tracker(Mywindow_width=window_width, Mywindow_height=window_height, Mymargin=25, My_ym=10/720, My_xm=4/384, Mysmooth_factor=15)
+
+    window_centroids = curve_centers.find_window_centroids(warped)
+
+    l_points = np.zeros_like(warped)
+    r_points = np.zeros_like(warped)
+
+    for level in range(len(window_centroids)):
+        l_mask = window_mask(window_width, window_height, warped, window_centroids[level][0], level)
+        r_mask = window_mask(window_width, window_height, warped, window_centroids[level][1], level)
+
+        l_points[(l_points == 255) | (l_mask == 1)] = 255
+        r_points[(r_points == 255) | (r_mask == 1)] = 255
+
+    # Draw
+    template = np.array(r_points+l_points, np.uint8)
+    zero_channel=np.zeros_like(template)
+    template = np.array(cv2.merge((zero_channel, template, zero_channel)), np.uint8)
+    warpage = np.array(cv2.merge((warped, warped, warped)), np.uint8)
+    result = cv2.addWeighted(warpage, 1, template, 0.5, 0.0)
+    # result = warped
+
+    y_vals = range(0, warped.shape[0])
+    res_yvals = np.arange(warped.shape[0]-(window_height/2), 0, -window_height)
+
+    left_fit = np.polyfit(res_vals, leftx, 2)
+    left_fitx = left_fit[0]*yvals*yvals + left_fit[1]*yvals + left_fit[2]
+    left_fitx = np.array(left_fitx, np.int32)
+
+    right_fit = np.polyfit(res_yvals, rightx, 2)
+    right_fitx = right_fitx[0]*yvals*yvals + right_fit[1]*yvals + right_fit[2]
+    right_fitx = np.array(right_fitx, np.int32)
+
+
+    write_name = f'./test_images/windows-tracked-{idx}.jpg'
     cv2.imwrite(write_name, result)
