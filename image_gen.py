@@ -70,7 +70,7 @@ def window_mask(width, height, img_ref, center, level):
 
 
 if __name__ == '__main__':
-    images = glob.glob('./test_images/test*.jpg')
+    images = glob.glob('./solution/first_frame*.jpg')
     for idx, fname in enumerate(images):
         img = cv2.imread(fname)
         img = cv2.undistort(img, mtx, dist, None, mtx)
@@ -102,6 +102,9 @@ if __name__ == '__main__':
         M = cv2.getPerspectiveTransform(src, dst)
         Minv = cv2.getPerspectiveTransform(dst, src)
         warped = cv2.warpPerspective(preprocess_image, M, img_size, flags=cv2.INTER_LINEAR)
+
+        write_name = f'./solution/warped_first_frame_old_soln.jpg'
+        cv2.imwrite(write_name, warped)
 
         window_width = 25
         window_height = 80
@@ -178,5 +181,5 @@ if __name__ == '__main__':
         cv2.putText(result, 'Vehicle is '+str(abs(round(center_diff, 3)))+'m '+side_pos+' of center',(50,100),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
 
         # result = road
-        write_name = f'./test_images/rwarped-lane-windows-tracked-{idx}.jpg'
+        write_name = f'./solution/first_frame_old_soln.jpg'
         cv2.imwrite(write_name, result)
